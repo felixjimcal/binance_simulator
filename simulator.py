@@ -1,10 +1,8 @@
-
 import datetime
 import sys
 
 import numpy as np
 import pandas as pd
-import talib
 from binance.client import Client
 from binance.enums import *
 
@@ -168,7 +166,7 @@ def prepare_data(crypto_symbol):
     """
     try:
         end = datetime.datetime.today().now().strftime("%d/%m/%Y")
-        start = (datetime.datetime.today() - datetime.timedelta(weeks=1)).strftime("%d/%m/%Y")
+        start = (datetime.datetime.today() - datetime.timedelta(weeks=9)).strftime("%d/%m/%Y")
         candles_b = binance_client.futures_historical_klines(symbol=crypto_symbol, interval=KLINE_INTERVAL_1DAY, start_str=start, end_str=end)
         if not candles_b:
             return 'no data'
@@ -176,8 +174,8 @@ def prepare_data(crypto_symbol):
         df_day = df_day.drop(['close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'], axis=1)
         df_day.insert(1, CTM_STRING, np.nan)
         df_day[CTM_STRING] = [str(datetime.datetime.utcfromtimestamp(x / 1000)) for x in df_day.timestamp]
-        # for col in df_day.columns[2:]:
-        #     df_day[col] = pd.to_numeric(df_day[col])
+        for col in df_day.columns[2:]:
+            df_day[col] = pd.to_numeric(df_day[col])
 
         # candles_min = binance_client.futures_historical_klines(symbol=symbol, interval=KLINE_INTERVAL_15MINUTE, start_str=start, end_str=end)
         # if not candles_min:
@@ -217,6 +215,7 @@ if __name__ == "__main__":
     #     if "USDT" in t['s']:
     #         symbols.append(t['s'])
 
-    symbols = ['BTCUSDT']
+    # https://cryptowat.ch/es-es/correlations
+    symbols = ['DOGEUSDT', 'LUNAUSDT', 'SOLUSDT', 'XMRUSDT', 'ZECUSDT']
     for symbol in symbols:
         prepare_data(symbol)
