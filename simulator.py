@@ -14,7 +14,7 @@ TIMESTAMP = 'timestamp'
 OPEN = 'open'
 CLOSE = 'close'
 VOLUME = 'volume'
-CTM_STRING = 'ctmString'
+CTM_STRING = 'ctm_string'
 
 BUY = 'buy'
 FIXED_RISK = 0.05
