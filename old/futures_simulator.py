@@ -57,7 +57,7 @@ def strategy_tendencies(df, symbl):
                         buy_price = row.close + fees
                         sl = buy_price - (0.20 * buy_price)
                         res = 0  # list(map(float, row.resistances.replace('[', '').replace(']', '').split(",")))
-                        tp = 0  # buy_price + (0.5 * buy_price)  # buy_price + 0.01 + size_in_usdt if not any(ele > buy_price for ele in res) else next(x[1] for x in enumerate(res) if x[1] > buy_price)
+                        tp = buy_price + (0.7 * buy_price)  # buy_price + 0.01 + size_in_usdt if not any(ele > buy_price for ele in res) else next(x[1] for x in enumerate(res) if x[1] > buy_price)
                         last_buys.append((buy_price, sl, tp, size_in_usdt, row.ctm_string, row.timestamp, fees))
                         open_trades += 1
                         my_balance -= size_in_usdt
@@ -79,8 +79,7 @@ def strategy_tendencies(df, symbl):
                     del last_buys[e]
                     closed_trades += 1
                     continue
-                # if row.low <= tp <= row.high or row.high > tp:
-                if row['RSI_OVER_70']:
+                if row.low <= tp <= row.high or row.high > tp:
                     result = (row.close - last_buy) * (size_in_usdt / last_buy)
                     if result < 0:
                         continue
@@ -113,37 +112,21 @@ def prepare_data(crypto_symbol):
     for col in df_day.columns[2:]:
         df_day[col] = pd.to_numeric(df_day[col])
 
-    df_day['EMA_S'] = round(talib.EMA(df_day.close, 20), 4)
-    df_day['EMA_M'] = round(talib.EMA(df_day.close, 70), 4)
-    df_day['EMA_L'] = round(talib.EMA(df_day.close, 100), 4)
-
-    # Es interesante plantear un código para detectar picos y divergencias en el RSI
-    # el RSI baja y el precio sube en un plazo de tiempo más grande, divergencia
-    df_day['RSI'] = round(talib.RSI(df_day.close, 14), 4)
-    df_day['RSI_UNDER_30'] = np.where(df_day.RSI < 30, True, False)
-    df_day['RSI_OVER_70'] = np.where(df_day.RSI > 90, True, False)
-
-    # https://www.youtube.com/watch?v=IeasOiEua-4&t=0s&ab_channel=An%C3%A1lisisT%C3%A9cnicoSt.
-    # upper, middle, lower = talib.BBANDS(df_day.close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-    # df_day['BB_U'] = round(upper, 4)
-    # df_day['BB_M'] = round(middle, 4)
-    # df_day['BB_L'] = round(lower, 4)
-    # df_day['L_BB_L'] = np.where(df_day.low <= df_day.BB_L, True, False)
-
-    # 7, 10, 6, 6
-    # sto_k, sto_d = talib.STOCHRSI(df_day.close, timeperiod=10, fastk_period=7, fastd_period=6, fastd_matype=6)
-    # df_day['sto_k'] = round(sto_k, 4)
-    # df_day['sto_d'] = round(sto_d, 4)
-
-    # df_day['entry'] = np.where(, True, False)
+    df_day['BOP'] = talib.BOP(df_day.open, df_day.high, df_day.low, df_day.close)
+    df_day["BULL"] = np.where(df_day.close.diff() >= 0.02, True, False)
+    fastk_rsi, fastd_rsi = talib.STOCHRSI(df_day.close, timeperiod=14, fastk_period=5, fastd_period=3, fastd_matype=0)
+    df_day['fastk_rsi'] = fastk_rsi
+    df_day['fastd_rsi'] = fastd_rsi
+    fastk, fastd = talib.STOCHF(df_day.high, df_day.low, df_day.close, fastk_period=5, fastd_period=3, fastd_matype=0)
+    df_day['fastk'] = fastk
+    df_day['fastd'] = fastd
+    df_day['entry'] = np.where((df_day['BOP'] <= 0.003046) & (df_day['fastk_rsi'] <= 3.219684), True, False)
     print(crypto_symbol, strategy_tendencies(df_day, crypto_symbol))
-    # print(crypto_symbol, strategy_(df_day, crypto_symbol))
-    # print(crypto_symbol, strategy_a(df_day, crypto_symbol))
 
 
 if __name__ == "__main__":
     client = Futures(key='<api_key>', secret='<api_secret>')
 
-    symbols = ['DOGEUSDT' , 'LUNAUSDT', 'SOLUSDT', 'XMRUSDT', 'ZECUSDT']
+    symbols = ['BTCUSDT', 'DOGEUSDT', 'LUNAUSDT', 'SOLUSDT', 'XMRUSDT', 'ZECUSDT']
     for symbol in symbols:
         prepare_data(symbol)

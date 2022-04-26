@@ -130,3 +130,4 @@ dmypy.json
 
 # Files to ignore
 *.idea
+/utils/secrets

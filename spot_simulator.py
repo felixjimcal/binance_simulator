@@ -6,7 +6,7 @@ import pandas as pd
 from binance.client import Client
 from binance.enums import *
 
-from utils import credentials
+from utils.secrets import credentials
 
 HIGH = 'high'
 LOW = 'low'
@@ -16,20 +16,9 @@ CLOSE = 'close'
 VOLUME = 'volume'
 CTM_STRING = 'ctm_string'
 
-BUY = 'buy'
-FIXED_RISK = 0.05
-ATR = 'atr'
-PLUS = 'plus'
-MIN = 'minus'
-LONG_LEGGED = 'll'
-SUPPORTS = 'supports'
-RESISTANCES = 'resistances'
-
-MACD_1M = 'macd_1m'
-MACD_SIGNAL_1M = 'macd_signal_1m'
-MACD_HIST_1M = 'macd_hist_1m'
-
 BALANCE = 300
+
+FIXED_RISK = 0.05
 
 
 def strategy_a(df_min, s):
@@ -118,46 +107,6 @@ def strategy_a(df_min, s):
         print('Fail in so:', ex.args, 'line:', exc_tb.tb_lineno)
 
 
-def apply_pivots(df_b, df_min):
-    df_min['t'] = [datetime.datetime.utcfromtimestamp(x / 1000).day for x in df_min.timestamp]
-    df_min[SUPPORTS] = np.nan
-    df_min[RESISTANCES] = np.nan
-
-    for _, day in df_b.iterrows():
-        df_pivots_high = day.high
-        df_pivots_low = day.low
-        df_pivots_close = day.close
-        decimals = 1
-        pivot = round((df_pivots_high + df_pivots_low + df_pivots_close) / 3, decimals)
-        resistance_1 = round(2 * pivot - df_pivots_low, decimals)
-        resistance_2 = round(pivot + (df_pivots_high - df_pivots_low), decimals)
-        resistance_3 = round(pivot + 2 * (df_pivots_high - df_pivots_low), decimals)
-        resistances = sorted([pivot, resistance_1, resistance_2, resistance_3])
-        support_1 = round(2 * pivot - df_pivots_high, decimals)
-        support_2 = round(pivot - (df_pivots_high - df_pivots_low), decimals)
-        support_3 = round(pivot - 2 * (df_pivots_high - df_pivots_low), decimals)
-        supports = sorted([pivot, support_1, support_2, support_3], reverse=True)
-        # week_day = datetime.datetime.fromtimestamp(day.ctm / 1000).weekday()
-
-        # if day.ctm == df_b['close_time'].iloc[-1]:
-        #     break
-
-        # days = 1
-        # if week_day == 4:
-        #     days = 3
-        # ctm_day = int((datetime.datetime.fromtimestamp(day.ctm / 1000) + datetime.timedelta(days=days)).strftime("%d"))
-
-        minutes_index = df_min.index[df_min["t"] == (datetime.datetime.utcfromtimestamp(day.timestamp / 1000) + datetime.timedelta(days=1)).day].tolist()
-        for i in minutes_index:
-            df_min.at[i, SUPPORTS] = str(supports)
-            df_min.at[i, RESISTANCES] = str(resistances)
-
-    df_min = df_min.drop(['t'], axis=1)
-    return df_min
-    # ONLY FOR DEBUG
-    # print(df_min[SUPPORTS].iloc[int(len(df_min)/2)], df_min[CTM_STRING].iloc[int(len(df_min)/2)])
-
-
 def prepare_data(crypto_symbol):
     """
 
@@ -166,8 +115,8 @@ def prepare_data(crypto_symbol):
     """
     try:
         end = datetime.datetime.today().now().strftime("%d/%m/%Y")
-        start = (datetime.datetime.today() - datetime.timedelta(weeks=9)).strftime("%d/%m/%Y")
-        candles_b = binance_client.futures_historical_klines(symbol=crypto_symbol, interval=KLINE_INTERVAL_1DAY, start_str=start, end_str=end)
+        start = (datetime.datetime.today() - datetime.timedelta(weeks=99999)).strftime("%d/%m/%Y")
+        candles_b = binance_client.get_historical_klines(symbol=crypto_symbol, interval=KLINE_INTERVAL_1DAY, start_str=start, end_str=end)
         if not candles_b:
             return 'no data'
         df_day = pd.DataFrame(candles_b, columns=[TIMESTAMP, OPEN, HIGH, LOW, CLOSE, VOLUME, 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'])
@@ -176,29 +125,6 @@ def prepare_data(crypto_symbol):
         df_day[CTM_STRING] = [str(datetime.datetime.utcfromtimestamp(x / 1000)) for x in df_day.timestamp]
         for col in df_day.columns[2:]:
             df_day[col] = pd.to_numeric(df_day[col])
-
-        # candles_min = binance_client.futures_historical_klines(symbol=symbol, interval=KLINE_INTERVAL_15MINUTE, start_str=start, end_str=end)
-        # if not candles_min:
-        #     return 'no data'
-        # df_min = pd.DataFrame(candles_min, columns=[TIMESTAMP, OPEN, HIGH, LOW, CLOSE, VOLUME, 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'])
-        # df_min = df_min.drop(['close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'], axis=1)
-        # df_min.insert(1, CTM_STRING, np.nan)
-        # df_min[CTM_STRING] = [str(datetime.datetime.utcfromtimestamp(x / 1000)) for x in df_min.timestamp]
-        # for col in df_min.columns[2:]:
-        #     df_min[col] = pd.to_numeric(df_min[col])
-
-        # candles_hour = binance_client.futures_historical_klines(symbol=symbol, interval=KLINE_INTERVAL_1HOUR, start_str=start, end_str=end)
-        # if not candles_hour:
-        #     return 'no data'
-        # df_hour = pd.DataFrame(candles_hour, columns=[TIMESTAMP, OPEN, HIGH, LOW, CLOSE, VOLUME, 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'])
-        # df_hour = df_hour.drop(['close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'], axis=1)
-        # df_hour.insert(1, CTM_STRING, np.nan)
-        # df_hour[CTM_STRING] = [str(datetime.datetime.utcfromtimestamp(x / 1000)) for x in df_hour.timestamp]
-        # for col in df_hour.columns[2:]:
-        #     df_hour[col] = pd.to_numeric(df_hour[col])
-
-        # Pivots
-        # df_min = apply_pivots(df_day, df_min)
 
         print(crypto_symbol, strategy_a(df_day, crypto_symbol))
     except Exception as ex:
@@ -209,13 +135,6 @@ def prepare_data(crypto_symbol):
 if __name__ == "__main__":
     binance_client = Client(credentials.BINANCE_API_FUTURES, credentials.BINANCE_API_FUTURES_SECRET, testnet=False)
 
-    # all_symbols = binance_client.get_products()['data']
-    # symbols = []
-    # for t in all_symbols:
-    #     if "USDT" in t['s']:
-    #         symbols.append(t['s'])
-
-    # https://cryptowat.ch/es-es/correlations
     symbols = ['DOGEUSDT', 'LUNAUSDT', 'SOLUSDT', 'XMRUSDT', 'ZECUSDT']
     for symbol in symbols:
         prepare_data(symbol)
